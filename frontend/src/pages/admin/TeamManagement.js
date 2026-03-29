@@ -281,95 +281,141 @@ function TeamManagement() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
+            style={{
+              position: 'fixed',
+              inset: 0,
+              background: 'rgba(15, 23, 42, 0.65)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 500
+            }}
             onClick={() => setShowAddModal(false)}
           >
             <motion.div 
               className="modal"
-              initial={{ opacity: 0, scale: 0.95, y: 20 }}
+              initial={{ opacity: 0, scale: 0.92, y: 24 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 20 }}
+              exit={{ opacity: 0, scale: 0.94, y: 20 }}
+              transition={{ duration: 0.24, ease: 'easeOut' }}
               onClick={e => e.stopPropagation()}
+              style={{
+                width: '100%',
+                maxWidth: '820px',
+                borderRadius: '28px',
+                padding: '28px',
+                background: 'rgba(255, 255, 255, 0.94)',
+                border: '1px solid rgba(99, 102, 241, 0.14)',
+                boxShadow: '0 32px 90px rgba(15, 23, 42, 0.18)',
+                backdropFilter: 'blur(22px)'
+              }}
             >
-              <div className="modal-header">
-                <h2>Add New User</h2>
-                <button className="modal-close" onClick={() => setShowAddModal(false)}>×</button>
-              </div>
-
-              <div className="modal-body">
-                <p style={{ marginBottom: '24px', color: 'var(--text-muted)' }}>
-                  The user will receive an invite email to set up their account. Their preferred currency 
-                  will default to the company's base currency ({company?.baseCurrency || 'USD'}).
-                </p>
-
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>First Name</label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={newUser.firstName}
-                      onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
-                      placeholder="John"
-                    />
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '24px', marginBottom: '28px', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.18em', textTransform: 'uppercase', color: 'var(--primary)' }}>
+                    Premium workflow
                   </div>
-                  <div className="form-group">
-                    <label>Last Name</label>
-                    <input
-                      type="text"
-                      className="input"
-                      value={newUser.lastName}
-                      onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
-                      placeholder="Doe"
-                    />
-                  </div>
+                  <h2 style={{ marginTop: '12px', fontSize: '1.6rem' }}>Invite a new team member</h2>
+                  <p style={{ marginTop: '12px', color: 'var(--text-secondary)', maxWidth: '520px', lineHeight: 1.75 }}>
+                    Send a polished onboarding invite with role setup, reporting assignment, and automatic currency defaults.
+                  </p>
                 </div>
-
-                <div className="form-group">
-                  <label>Email Address</label>
-                  <input
-                    type="email"
-                    className="input"
-                    value={newUser.email}
-                    onChange={(e) => setNewUser({...newUser, email: e.target.value})}
-                    placeholder="john.doe@company.com"
-                  />
-                </div>
-
-                <div className="form-grid">
-                  <div className="form-group">
-                    <label>Role</label>
-                    <select
-                      className="input"
-                      value={newUser.role}
-                      onChange={(e) => setNewUser({...newUser, role: e.target.value})}
-                    >
-                      <option value="employee">Employee</option>
-                      <option value="manager">Manager</option>
-                      <option value="admin">Admin</option>
-                    </select>
-                  </div>
-                  <div className="form-group">
-                    <label>Reports To</label>
-                    <select
-                      className="input"
-                      value={newUser.managerId}
-                      onChange={(e) => setNewUser({...newUser, managerId: e.target.value})}
-                    >
-                      <option value="">Select Manager</option>
-                      {managers.map(m => (
-                        <option key={m.id} value={m.id}>
-                          {m.firstName} {m.lastName} ({m.role})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-              </div>
-
-              <div className="modal-footer">
-                <button className="btn btn-ghost" onClick={() => setShowAddModal(false)}>
-                  Cancel
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => setShowAddModal(false)}
+                  style={{ fontSize: '1.5rem', lineHeight: 1, padding: '6px 12px' }}
+                >
+                  ×
                 </button>
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1.05fr', gap: '24px' }}>
+                <div style={{
+                  borderRadius: '24px',
+                  padding: '24px',
+                  background: 'linear-gradient(180deg, rgba(99, 102, 241, 0.12), rgba(236, 241, 255, 0.88))',
+                  border: '1px solid rgba(99, 102, 241, 0.14)',
+                  boxShadow: 'var(--shadow-xs)'
+                }}>
+                  <div style={{ fontWeight: 700, marginBottom: '16px' }}>Why this matters</div>
+                  <ul style={{ display: 'grid', gap: '12px', color: 'var(--text-secondary)', fontSize: '0.95rem' }}>
+                    <li>Beautiful onboarding experience for employees</li>
+                    <li>Corporate-ready role and manager assignment</li>
+                    <li>Currency aligned to company base by default</li>
+                    <li>Glassmorphic premium brand feel</li>
+                  </ul>
+                </div>
+
+                <div style={{ display: 'grid', gap: '18px' }}>
+                  <div style={{ display: 'grid', gap: '16px', padding: '24px', borderRadius: '24px', background: 'rgba(255, 255, 255, 0.98)', border: '1px solid var(--border-subtle)', boxShadow: 'var(--shadow-xs)' }}>
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>First Name</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={newUser.firstName}
+                        onChange={(e) => setNewUser({...newUser, firstName: e.target.value})}
+                        placeholder="John"
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Last Name</label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={newUser.lastName}
+                        onChange={(e) => setNewUser({...newUser, lastName: e.target.value})}
+                        placeholder="Doe"
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Email</label>
+                      <input
+                        type="email"
+                        className="input"
+                        value={newUser.email}
+                        onChange={(e) => setNewUser({...newUser, email: e.target.value})}
+                        placeholder="jane@company.com"
+                      />
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Role</label>
+                      <select
+                        className="input"
+                        value={newUser.role}
+                        onChange={(e) => setNewUser({...newUser, role: e.target.value})}
+                      >
+                        <option value="employee">Employee</option>
+                        <option value="manager">Manager</option>
+                        <option value="admin">Admin</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'grid', gap: '10px' }}>
+                      <label style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Reports To</label>
+                      <select
+                        className="input"
+                        value={newUser.managerId}
+                        onChange={(e) => setNewUser({...newUser, managerId: e.target.value})}
+                      >
+                        <option value="">Select Manager</option>
+                        {managers.map(m => (
+                          <option key={m.id} value={m.id}>
+                            {m.firstName} {m.lastName} ({m.role})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '24px' }}>
+                <button className="btn btn-ghost" onClick={() => setShowAddModal(false)}>Cancel</button>
                 <button 
                   className="btn btn-primary"
                   onClick={handleAddUser}

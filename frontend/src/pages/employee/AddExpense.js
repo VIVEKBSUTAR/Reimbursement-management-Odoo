@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth, CURRENCIES } from '../../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
+import { ocrAPI } from '../../services/api';
 
 const categories = [
   { id: 'travel', name: 'Travel', icon: '✈️', description: 'Flights, hotels, transport' },
@@ -27,6 +28,7 @@ function AddExpense() {
   const [step, setStep] = useState(1);
   const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [ocrResult, setOcrResult] = useState(null);
+  const [ocrError, setOcrError] = useState('');
   
   const [expense, setExpense] = useState({
     category: '',
@@ -54,32 +56,47 @@ function AddExpense() {
 
   const processReceipt = (file) => {
     const reader = new FileReader();
-    reader.onload = (e) => {
+    reader.onload = async (e) => {
       setExpense(prev => ({
         ...prev,
         receipt: file,
         receiptPreview: e.target.result
       }));
-      
-      // Simulate OCR processing
       setIsProcessingOCR(true);
-      setTimeout(() => {
-        // Simulated OCR result
-        const mockOCR = {
-          merchant: 'Starbucks Coffee',
-          amount: 24.50,
-          date: '2024-03-28',
-          confidence: 0.94
+      setOcrError('');
+      setOcrResult(null);
+
+      const formData = new FormData();
+      formData.append('receipt', file);
+
+      try {
+        const response = await ocrAPI.processReceipt(formData);
+        const result = response.data || {};
+
+        const normalizedAmount = result.amount != null ? String(result.amount) : '';
+        const normalizedMerchant = result.merchant || '';
+        const normalizedDate = result.date || '';
+        const normalizedConfidence = typeof result.confidence === 'number' ? result.confidence : 0;
+
+        const parsedOcr = {
+          merchant: normalizedMerchant,
+          amount: normalizedAmount,
+          date: normalizedDate,
+          confidence: Number(normalizedConfidence)
         };
-        setOcrResult(mockOCR);
+
+        setOcrResult(parsedOcr);
         setExpense(prev => ({
           ...prev,
-          merchant: mockOCR.merchant,
-          amount: mockOCR.amount.toString(),
-          date: mockOCR.date
+          merchant: normalizedMerchant,
+          amount: normalizedAmount,
+          date: normalizedDate || prev.date
         }));
+      } catch (error) {
+        setOcrError('Unable to extract receipt data. Please verify the image and try again.');
+      } finally {
         setIsProcessingOCR(false);
-      }, 2000);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -92,6 +109,11 @@ function AddExpense() {
 
   const getCurrencySymbol = (code) => {
     return CURRENCIES.find(c => c.code === code)?.symbol || code;
+  };
+
+  const getFieldStatus = (field) => {
+    if (!ocrResult) return 'pending';
+    return ocrResult[field] ? 'matched' : 'missing';
   };
 
   // Step title function - used in header
@@ -244,180 +266,242 @@ function AddExpense() {
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
           >
-            <div className="card" style={{ padding: '32px' }}>
-              <h2 style={{ marginBottom: '24px' }}>Expense Details</h2>
+            <div className="card" style={{ padding: '28px' }}>
+              <h2 style={{ marginBottom: '18px' }}>Receipt scanning & expense details</h2>
+              <p className="text-muted" style={{ marginBottom: '28px' }}>
+                Upload a receipt and let the smart OCR pipeline fill in the key expense fields automatically.
+              </p>
 
-              {/* Receipt Upload */}
-              <div className="form-group" style={{ marginBottom: '24px' }}>
-                <label>Receipt (Optional)</label>
-                <div
-                  className="dropzone"
-                  onDrop={handleFileDrop}
-                  onDragOver={(e) => e.preventDefault()}
-                  style={{
-                    border: '2px dashed var(--border)',
-                    borderRadius: '12px',
-                    padding: expense.receiptPreview ? '16px' : '40px',
-                    textAlign: 'center',
-                    cursor: 'pointer',
-                    background: 'var(--bg-secondary)',
-                    transition: 'border-color 0.2s, background 0.2s'
-                  }}
-                  onClick={() => document.getElementById('receipt-input').click()}
-                >
-                  <input
-                    id="receipt-input"
-                    type="file"
-                    accept="image/*"
-                    onChange={handleFileDrop}
-                    style={{ display: 'none' }}
-                  />
+              <div style={{
+                display: 'grid',
+                gridTemplateColumns: 'minmax(320px, 1.1fr) 1fr',
+                gap: '24px',
+                alignItems: 'start'
+              }}>
+                <div style={{
+                  borderRadius: '24px',
+                  overflow: 'hidden',
+                  border: '1px solid var(--border-subtle)',
+                  background: 'linear-gradient(180deg, rgba(255,255,255,0.95), rgba(249,250,251,0.95))',
+                  boxShadow: 'var(--shadow-sm)'
+                }}>
+                  <div style={{ padding: '20px', borderBottom: '1px solid var(--border-subtle)' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '12px' }}>
+                      <div>
+                        <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>Receipt preview</div>
+                        <div className="text-muted" style={{ fontSize: '0.85rem' }}>Scan result will appear once upload completes.</div>
+                      </div>
+                      <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', padding: '6px 10px', borderRadius: '999px', background: isProcessingOCR ? 'var(--info-light)' : 'var(--success-light)', color: isProcessingOCR ? 'var(--info-dark)' : 'var(--success-dark)', fontSize: '0.75rem', fontWeight: 600 }}>
+                        <span>{isProcessingOCR ? 'Scanning' : 'Ready'}</span>
+                      </div>
+                    </div>
+                  </div>
 
-                  {expense.receiptPreview ? (
-                    <div style={{ position: 'relative' }}>
-                      <img 
-                        src={expense.receiptPreview} 
-                        alt="Receipt" 
-                        style={{ 
-                          maxHeight: '200px', 
-                          maxWidth: '100%',
-                          borderRadius: '8px',
-                          opacity: isProcessingOCR ? 0.5 : 1
-                        }} 
+                  <div style={{ padding: '24px' }}>
+                    <div
+                      className="dropzone"
+                      onDrop={handleFileDrop}
+                      onDragOver={(e) => e.preventDefault()}
+                      style={{
+                        minHeight: '320px',
+                        border: '2px dashed var(--border-default)',
+                        borderRadius: '20px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        textAlign: 'center',
+                        padding: '24px',
+                        cursor: 'pointer',
+                        background: expense.receiptPreview ? '#fff' : 'var(--bg-subtle)',
+                        position: 'relative',
+                        overflow: 'hidden'
+                      }}
+                      onClick={() => document.getElementById('receipt-input').click()}
+                    >
+                      <input
+                        id="receipt-input"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileDrop}
+                        style={{ display: 'none' }}
                       />
-                      {isProcessingOCR && (
-                        <div style={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          background: 'white',
-                          padding: '16px 24px',
-                          borderRadius: '12px',
-                          boxShadow: 'var(--shadow-lg)'
-                        }}>
-                          <div className="spinner" style={{ marginBottom: '8px' }} />
-                          <div style={{ fontSize: '14px', fontWeight: 500 }}>Processing with AI...</div>
+
+                      {expense.receiptPreview ? (
+                        <div style={{ width: '100%', height: '100%', position: 'relative' }}>
+                          <img
+                            src={expense.receiptPreview}
+                            alt="Receipt"
+                            style={{
+                              width: '100%',
+                              maxHeight: '320px',
+                              objectFit: 'contain',
+                              borderRadius: '18px',
+                              filter: isProcessingOCR ? 'blur(1px)' : 'none',
+                              opacity: isProcessingOCR ? 0.7 : 1,
+                              transition: 'all 0.2s ease'
+                            }}
+                          />
+
+                          {isProcessingOCR && (
+                            <div style={{
+                              position: 'absolute',
+                              inset: 0,
+                              display: 'flex',
+                              flexDirection: 'column',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              background: 'rgba(255, 255, 255, 0.72)',
+                              borderRadius: '18px'
+                            }}>
+                              <div className="spinner" style={{ width: '42px', height: '42px', marginBottom: '14px' }} />
+                              <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>Analyzing receipt</div>
+                              <div className="text-muted" style={{ fontSize: '13px', marginTop: '6px' }}>Looking for merchant, amount, and date</div>
+                            </div>
+                          )}
+                        </div>
+                      ) : (
+                        <div style={{ color: 'var(--text-tertiary)' }}>
+                          <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" style={{ marginBottom: '18px' }}>
+                            <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                            <polyline points="17 8 12 3 7 8"/>
+                            <line x1="12" y1="3" x2="12" y2="15"/>
+                          </svg>
+                          <div style={{ fontWeight: 600, marginBottom: '8px' }}>Drop or select a receipt image</div>
+                          <div className="text-muted">Supported: JPG, PNG, PDF. We’ll auto-populate the expense fields.</div>
                         </div>
                       )}
                     </div>
-                  ) : (
-                    <>
-                      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--text-muted)" strokeWidth="1.5" style={{ marginBottom: '16px' }}>
-                        <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
-                        <polyline points="17 8 12 3 7 8"/>
-                        <line x1="12" y1="3" x2="12" y2="15"/>
-                      </svg>
-                      <div style={{ fontWeight: 500, marginBottom: '8px' }}>Drop receipt here or click to upload</div>
-                      <div className="text-muted" style={{ fontSize: '13px' }}>
-                        Our AI will automatically extract amount, date, and merchant
+
+                    {ocrError && (
+                      <div style={{
+                        marginTop: '18px',
+                        padding: '16px',
+                        borderRadius: '16px',
+                        background: 'var(--error-light)',
+                        color: 'var(--error-dark)'
+                      }}>
+                        {ocrError}
                       </div>
-                    </>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* OCR Result */}
-              {ocrResult && (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  style={{
-                    background: '#d1fae5',
-                    border: '1px solid #10b981',
-                    borderRadius: '12px',
-                    padding: '16px',
-                    marginBottom: '24px',
+                <div style={{ display: 'grid', gap: '18px' }}>
+                  <div style={{
                     display: 'flex',
-                    gap: '12px',
-                    alignItems: 'flex-start'
-                  }}
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#065f46" strokeWidth="2">
-                    <path d="M22 11.08V12a10 10 0 11-5.93-9.14"/>
-                    <polyline points="22 4 12 14.01 9 11.01"/>
-                  </svg>
-                  <div>
-                    <div style={{ fontWeight: 600, color: '#065f46', marginBottom: '4px' }}>
-                      AI Extraction Complete ({Math.round(ocrResult.confidence * 100)}% confidence)
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    gap: '16px',
+                    padding: '18px 22px',
+                    borderRadius: '22px',
+                    background: 'var(--bg-default)',
+                    border: '1px solid var(--border-subtle)',
+                    boxShadow: 'var(--shadow-xs)'
+                  }}>
+                    <div>
+                      <div style={{ fontSize: '0.95rem', fontWeight: 600 }}>Extracted data</div>
+                      <div className="text-muted" style={{ fontSize: '13px' }}>Fields update automatically when OCR completes.</div>
                     </div>
-                    <div style={{ color: '#047857', fontSize: '14px' }}>
-                      Extracted: {ocrResult.merchant}, {getCurrencySymbol(expense.currency)}{ocrResult.amount}, {ocrResult.date}
+                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <span className="badge badge-info">Live OCR</span>
+                      {ocrResult && (
+                        <span className="badge badge-success">{Math.round(ocrResult.confidence * 100)}% confidence</span>
+                      )}
                     </div>
                   </div>
-                </motion.div>
-              )}
 
-              {/* Form Fields */}
-              <div className="form-grid">
-                <div className="form-group">
-                  <label>Amount *</label>
-                  <div style={{ display: 'flex', gap: '12px' }}>
-                    <select
-                      className="input"
-                      value={expense.currency}
-                      onChange={(e) => setExpense({...expense, currency: e.target.value})}
-                      style={{ width: '120px' }}
-                    >
-                      {CURRENCIES.map(c => (
-                        <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
-                      ))}
-                    </select>
-                    <input
-                      type="number"
-                      className="input"
-                      value={expense.amount}
-                      onChange={(e) => setExpense({...expense, amount: e.target.value})}
-                      placeholder="0.00"
-                      step="0.01"
-                      style={{ flex: 1 }}
-                    />
+                  <div style={{ display: 'grid', gap: '16px' }}>
+                    <div className="form-group">
+                      <label style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                        <span>Merchant / Vendor</span>
+                        <span style={{ color: getFieldStatus('merchant') === 'matched' ? 'var(--success-dark)' : 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {ocrResult ? (getFieldStatus('merchant') === 'matched' ? 'Auto-filled' : 'Review manually') : 'Waiting'}
+                        </span>
+                      </label>
+                      <input
+                        type="text"
+                        className="input"
+                        value={expense.merchant}
+                        onChange={(e) => setExpense({...expense, merchant: e.target.value})}
+                        placeholder="e.g. Starbucks Coffee"
+                        style={{
+                          borderColor: getFieldStatus('merchant') === 'matched' ? 'var(--success)' : undefined
+                        }}
+                      />
+                    </div>
+
+                    <div className="form-group">
+                      <label style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                        <span>Amount</span>
+                        <span style={{ color: getFieldStatus('amount') === 'matched' ? 'var(--success-dark)' : 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {ocrResult ? (getFieldStatus('amount') === 'matched' ? 'Confirmed' : 'Highlight') : 'Waiting'}
+                        </span>
+                      </label>
+                      <div style={{ display: 'grid', gridTemplateColumns: '120px 1fr', gap: '12px' }}>
+                        <select
+                          className="input"
+                          value={expense.currency}
+                          onChange={(e) => setExpense({...expense, currency: e.target.value})}
+                          style={{ width: '100%' }}
+                        >
+                          {CURRENCIES.map(c => (
+                            <option key={c.code} value={c.code}>{c.code} ({c.symbol})</option>
+                          ))}
+                        </select>
+                        <input
+                          type="number"
+                          className="input"
+                          value={expense.amount}
+                          onChange={(e) => setExpense({...expense, amount: e.target.value})}
+                          placeholder="0.00"
+                          step="0.01"
+                          style={{
+                            borderColor: getFieldStatus('amount') === 'matched' ? 'var(--success)' : undefined
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="form-group">
+                      <label style={{ display: 'flex', justifyContent: 'space-between', gap: '12px' }}>
+                        <span>Date</span>
+                        <span style={{ color: getFieldStatus('date') === 'matched' ? 'var(--success-dark)' : 'var(--text-muted)', fontSize: '0.8rem' }}>
+                          {ocrResult ? (getFieldStatus('date') === 'matched' ? 'Detected' : 'Adjust if needed') : 'Waiting'}
+                        </span>
+                      </label>
+                      <input
+                        type="date"
+                        className="input"
+                        value={expense.date}
+                        onChange={(e) => setExpense({...expense, date: e.target.value})}
+                        style={{
+                          borderColor: getFieldStatus('date') === 'matched' ? 'var(--success)' : undefined
+                        }}
+                      />
+                    </div>
+
+                    <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+                      <label>Description *</label>
+                      <textarea
+                        className="input"
+                        rows={4}
+                        value={expense.description}
+                        onChange={(e) => setExpense({...expense, description: e.target.value})}
+                        placeholder="Describe the purpose of this expense..."
+                        style={{ minHeight: '110px' }}
+                      />
+                    </div>
                   </div>
-                  <small className="text-muted" style={{ marginTop: '4px', display: 'block' }}>
-                    Your preferred currency is {user?.preferredCurrency}. You can change it for foreign receipts.
-                  </small>
-                </div>
-
-                <div className="form-group">
-                  <label>Date *</label>
-                  <input
-                    type="date"
-                    className="input"
-                    value={expense.date}
-                    onChange={(e) => setExpense({...expense, date: e.target.value})}
-                  />
                 </div>
               </div>
 
-              <div className="form-group">
-                <label>Merchant/Vendor</label>
-                <input
-                  type="text"
-                  className="input"
-                  value={expense.merchant}
-                  onChange={(e) => setExpense({...expense, merchant: e.target.value})}
-                  placeholder="e.g., Starbucks, United Airlines"
-                />
-              </div>
-
-              <div className="form-group">
-                <label>Description *</label>
-                <textarea
-                  className="input"
-                  rows={3}
-                  value={expense.description}
-                  onChange={(e) => setExpense({...expense, description: e.target.value})}
-                  placeholder="Describe the purpose of this expense..."
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', marginTop: '24px' }}>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '24px', flexWrap: 'wrap' }}>
                 <button className="btn btn-ghost" onClick={() => setStep(1)}>
                   Back
                 </button>
                 <button 
                   className="btn btn-primary" 
-                  style={{ flex: 1 }}
+                  style={{ flex: 1, minWidth: '180px' }}
                   onClick={() => setStep(3)}
                   disabled={!expense.amount || !expense.description}
                 >
