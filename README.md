@@ -1,4 +1,4 @@
-# 🚀 IRMS - Intelligent Reimbursement Management System
+# 🚀 IRMS - Intelligent Reimbursement Management System ...
 
 > A rule-driven reimbursement system with dynamic approval workflow orchestration
 
